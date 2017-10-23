@@ -4,6 +4,7 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.exception.DockerException;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
+import com.github.dockerjava.api.command.ExecStartCmdResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.core.command.ExecStartResultCallback;
@@ -80,67 +81,67 @@ public class DockerComputerJNLPLauncher extends DockerComputerLauncher {
     @Override
     public void launch(SlaveComputer computer, TaskListener listener) throws IOException, InterruptedException {
         final PrintStream logger = listener.getLogger();
+        
         final DockerComputer dockerComputer = (DockerComputer) computer;
         final String containerId = dockerComputer.getContainerId();
         final String rootUrl = Jenkins.getInstance().getRootUrl();
         final DockerClient connect = dockerComputer.getCloud().getClient();
         final DockerTemplate dockerTemplate = dockerComputer.getNode().getDockerTemplate();
 
-        // exec jnlp connection in running container
-        // TODO implement PID 1 replacement
-
-//        String cdCmd = "cd " + dockerTemplate.getRemoteFs();
-//        String wgetSlaveCmd = "wget " + rootUrl + "jnlpJars/slave.jar -O slave.jar";
-//        String jnlpConnectCmd = "java -jar slave.jar "
-//                + "-jnlpUrl " + rootUrl + dockerComputer.getUrl() + "slave-agent.jnlp ";
-////                + "-secret " + dockerComputer.getJnlpMac();
-//
-//        String[] connectCmd = {
-//                "bash", "-c", cdCmd + " && " + wgetSlaveCmd + " && " + jnlpConnectCmd
-//        };
-
-        String startCmd =
-                "cat << EOF > /tmp/config.sh.tmp && cd /tmp && mv config.sh.tmp config.sh\n" +
-                        "JENKINS_URL=\"" + rootUrl + "\"\n" +
-                        "JENKINS_USER=\"" + getUser() + "\"\n" +
-                        "JENKINS_HOME=\"" + dockerTemplate.getRemoteFs() + "\"\n" +
-                        "COMPUTER_URL=\"" + dockerComputer.getUrl() + "\"\n" +
-                        "COMPUTER_SECRET=\"" + dockerComputer.getJnlpMac() + "\"\n" +
-                        "EOF" + "\n";
-
+        
+        
+        
+		String startDownloadCmdWindows = "(New-Object System.Net.WebClient).DownloadFile('"+rootUrl+"jnlpJars/slave.jar', 'slave.jar')";
+		
+		String startJavaCmdWindows = "java -jar slave.jar -jnlpUrl " + rootUrl + dockerComputer.getUrl() + "slave-agent.jnlp "+
+						" -secret "+dockerComputer.getJnlpMac();
+                			
+		LOGGER.debug("startDownloadCmdWindows:"+startDownloadCmdWindows);		
+		
+		LOGGER.debug("startJavaCmdWindows:"+startJavaCmdWindows);		
+		
+		
         try {
-//            LOGGER.info("Creating jnlp connection command '{}' for '{}'", Arrays.toString(connectCmd), containerId);
-//            logger.println("Creating jnlp connection command '" + Arrays.toString(connectCmd) + "' for '" + containerId + "'");
 
-            final ExecCreateCmdResponse response = connect.execCreateCmd(containerId)
+        	
+        	final ExecCreateCmdResponse response = connect.execCreateCmd(containerId)
                     .withTty(true)
                     .withAttachStdin(true)
                     .withAttachStderr(true)
                     .withAttachStdout(true)
-//                    .withCmd(connectCmd)
-                    .withCmd("/bin/bash", "-cxe", startCmd.replace("$", "\\$"))
+                    .withCmd("powershell",startDownloadCmdWindows)
                     .exec();
-
-            LOGGER.info("Starting connection command for {}", containerId);
-            logger.println("Starting connection command for " + containerId);
-
-
-            try {
-                connect.execStartCmd(response.getId())
-                        .withDetach(true)
-                        .withTty(true)
-                        .exec( new ExecStartResultCallback(null,null));
-            } catch (NotFoundException ex) {
-                listener.error("Can't execute command: " + ex.getMessage());
-                LOGGER.error("Can't execute jnlp connection command: '{}'", ex.getMessage());
-            }
+        	LOGGER.debug("Exec create cmd :"+response.getId());
+    	   
+    	    ExecStartCmdResponse res = connect.execStartCmdSync(response.getId())
+            .withDetach(false)
+            .withTty(false)
+            .exec();
+    	    
+    	    
+    	    final ExecCreateCmdResponse response2 = connect.execCreateCmd(containerId)
+                    .withTty(true)
+                    .withAttachStdin(true)
+                    .withAttachStderr(true)
+                    .withAttachStdout(true)
+                    .withCmd("powershell",startJavaCmdWindows)
+                    .exec();
+    	    LOGGER.debug("Exec create cmd :"+response.getId());
+    	   
+    	    ExecStartCmdResponse res2 = connect.execStartCmdSync(response2.getId())
+            .withDetach(false)
+            .withTty(false)
+            .exec();
+    	    
 
         } catch (Exception ex) {
             listener.error("Can't execute command: " + ex.getMessage());
             LOGGER.error("Can't execute jnlp connection command: '{}'", ex.getMessage());
+			System.out.println("Can't execute command: " + ex.getMessage());	
             throw ex;
         }
 
+		System.out.println("Successfully executed jnlp connection for '{}'"+containerId);	
         LOGGER.info("Successfully executed jnlp connection for '{}'", containerId);
         logger.println("Successfully executed jnlp connection for " + containerId);
 
@@ -173,7 +174,7 @@ public class DockerComputerJNLPLauncher extends DockerComputerLauncher {
     @Override
     public void appendContainerConfig(DockerTemplate dockerTemplate, CreateContainerCmd createContainerCmd) throws IOException {
 
-        try (InputStream istream = DockerComputerJNLPLauncher.class.getResourceAsStream("DockerComputerJNLPLauncher/init.sh")) {
+        /*try (InputStream istream = DockerComputerJNLPLauncher.class.getResourceAsStream("DockerComputerJNLPLauncher/init.sh")) {
             final String initCmd = IOUtils.toString(istream, Charsets.UTF_8);
             if (initCmd == null) {
                 throw new IllegalStateException("Resource file 'init.sh' not found");
@@ -199,7 +200,7 @@ public class DockerComputerJNLPLauncher extends DockerComputerLauncher {
 //        }
 
         createContainerCmd.withTty(true);
-        createContainerCmd.withStdinOpen(true);
+        createContainerCmd.withStdinOpen(true);*/
 
     }
 

@@ -12,6 +12,8 @@ import com.github.dockerjava.api.exception.DockerException;
 import com.github.dockerjava.api.model.AuthConfig;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Image;
+import com.github.dockerjava.api.model.Volume;
+import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Version;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
@@ -290,7 +292,9 @@ public class DockerCloud extends Cloud {
             throws DockerException, IOException {
         final DockerTemplateBase dockerTemplateBase = dockerTemplate.getDockerTemplateBase();
         CreateContainerCmd containerConfig = dockerClient.createContainerCmd(dockerTemplateBase.getImage());
-
+       
+        
+        
         dockerTemplateBase.fillContainerConfig(containerConfig);
 
         // contribute launcher specific options
@@ -299,10 +303,33 @@ public class DockerCloud extends Cloud {
         }
 
         // create
-        CreateContainerResponse response = containerConfig.exec();
+		System.out.println("Creating container...:"+containerConfig);
+		System.out.println("Image Id:"+dockerTemplateBase.getImage());
+		//Volume volume1 = new Volume("C:\\mvn_repo");
+		//   t spec \"C:\\\\mvn_repo:C:\\\\mvn_repo:rw,nocopy\"
+		CreateContainerResponse response=null;
+		if(dockerTemplateBase.getImage().contains("windows")){
+			System.out.println("Starting windows container...");
+         response = containerConfig
+        		// .withVolumes(volume1)
+        		// .withBinds(new Bind("C:\\mvn_repo", volume1, true))
+        		 .withTty(true)
+        	        .withAttachStdin(true)
+        	        .withAttachStderr(true)
+        	        .withAttachStdout(true)
+				.withCmd("powershell")
+        	        	
+        .exec();
+		}else{
+			System.out.println("Starting Linux container...");
+			 response = containerConfig.exec();
+		}
+        
+        
         String containerId = response.getId();
 
         // start
+		System.out.println("Starting container...:"+containerId);
         StartContainerCmd startCommand = dockerClient.startContainerCmd(containerId);
         startCommand.exec();
 
@@ -325,10 +352,12 @@ public class DockerCloud extends Cloud {
 //        }
 
         // create
+		System.out.println("Creating container...:"+containerConfig);
         CreateContainerResponse response = containerConfig.exec();
         String containerId = response.getId();
 
         // start
+		System.out.println("Starting container...:"+containerId);
         StartContainerCmd startCommand = dockerClient.startContainerCmd(containerId);
         startCommand.exec();
 

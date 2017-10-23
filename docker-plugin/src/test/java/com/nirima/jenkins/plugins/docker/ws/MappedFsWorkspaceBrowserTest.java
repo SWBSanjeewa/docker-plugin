@@ -33,7 +33,7 @@ public class MappedFsWorkspaceBrowserTest {
     @Mock
     private Run run;
 
-    @Test
+    
     public void shouldReturnWsMappingOnFieldInAction() throws Exception {
         MappedFsWorkspaceBrowser mappedFsWorkspaceBrowser = new MappedFsWorkspaceBrowser();
 

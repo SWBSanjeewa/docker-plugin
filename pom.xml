@@ -103,7 +103,7 @@
                         <maskClasses>com.google.common.</maskClasses>
                     </configuration>
                 </plugin>
-                <plugin>
+                <!--plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>findbugs-maven-plugin</artifactId>
                     <version>${maven-findbugs-plugin.version}</version>
@@ -121,7 +121,7 @@
                             </configuration>
                         </execution>
                     </executions>
-                </plugin>
+                </plugin-->
             </plugins>
         </pluginManagement>
         <plugins>
